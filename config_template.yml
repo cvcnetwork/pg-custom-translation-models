@@ -246,7 +246,7 @@ engines:
   custom:
     models:
       model_name:
-        url: https://your-custom-url
+        url: https://your-custom-url?model=model_name
         api_key: your-custom-api-key
         languages:
           - eng
