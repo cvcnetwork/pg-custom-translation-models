@@ -47,3 +47,5 @@ Where:
 - `model` (required): The name of the model used (as some endpoints will integrate multiple models)
 - `target_lang` (required): The ISO639-3 (three letter) code specifying the target language
 - `source_lang` (optional): The ISO639-3 (three letter) code specifying the source language
+
+The custom translation engine endpoint should respond with a JSON body including a `translation` field containing the text translation (string).
