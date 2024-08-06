@@ -1,0 +1,14 @@
+langchain  
+predictionguard
+pandas
+requests
+fastapi
+uvicorn
+pydantic
+unbabel-comet
+deepl
+httpx 
+openai
+munch
+huggingface_hub
+requests
