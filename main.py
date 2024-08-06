@@ -219,12 +219,15 @@ def pg_openai_translation(text, source_language, target_language, model):
 
 def custom_translation(text, source_language, target_language, model):
 
+    # TODO: Make source language in the JSON body optional
+
     # Call the API
     headers = {'x-api-key': cfg.custom.models['model'].api_key}
     url = cfg.custom.models[model].url
     response = requests.post(
         url, 
         json={
+            'model': model,
             'text': text, 
             'source_language': source_language, 
             'target_language': target_language
