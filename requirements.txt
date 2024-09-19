@@ -5,11 +5,18 @@ requests
 fastapi
 uvicorn
 pydantic
+<<<<<<< HEAD
+=======
+unbabel-comet
+>>>>>>> 7aa91347c3122f796bbe58af93c509e425e4baf1
 deepl
 httpx 
 openai
 munch
 huggingface_hub
 requests
+<<<<<<< HEAD
 unbabel-comet>=2.0.0
 hf_transfer
+=======
+>>>>>>> 7aa91347c3122f796bbe58af93c509e425e4baf1
