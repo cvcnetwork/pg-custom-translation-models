@@ -5,10 +5,11 @@ requests
 fastapi
 uvicorn
 pydantic
-unbabel-comet
 deepl
 httpx 
 openai
 munch
 huggingface_hub
 requests
+unbabel-comet>=2.0.0
+hf_transfer
