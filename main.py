@@ -75,20 +75,6 @@ trans_prompt = """Translate the following {source_language} text to {target_lang
 
 {target_language} translation:"""
 
-#-------------------------#
-# ISO Code Language Data  #
-#-------------------------#
-
-# Download the data
-headers = {'User-Agent': 'Mozilla/5.0'}
-url = 'https://iso639-3.sil.org/sites/iso639-3/files/downloads/iso-639-3.tab'
-r = httpx.get(url, headers=headers)
-with open('iso-639-3.tab', 'wb') as fh:
-    fh.write(r.content)
-
-# Read it into memory
-iso = pd.read_csv('iso-639-3.tab', sep='\t')
-
 #----------------------#
 # COMET Quality Score  #
 #----------------------#
