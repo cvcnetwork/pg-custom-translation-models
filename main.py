@@ -19,6 +19,7 @@ import huggingface_hub
 huggingface_hub.constants.HF_HUB_DOWNLOAD_TIMEOUT = 1000  # Set timeout to 1000 seconds
 import httpx
 import logging
+from google.cloud import translate_v2 as translate
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -63,7 +64,7 @@ supported_languages.update(cfg.custom.models.nllb.languages)
 supported_languages.update(cfg.custom.models.mbart.languages)
 
 # Get a list of supported models
-supported_models = ['nllb', 'mbart', 'deepl', 'gpt-4', 'Hermes-2-Pro-Llama-3-8B', 'Hermes-2-Pro-Mistral-7B']
+supported_models = ['nllb', 'mbart', 'gpt-4', 'Hermes-2-Pro-Llama-3-8B', 'Hermes-2-Pro-Mistral-7B', 'Neural-Chat-7B', 'deepl', 'google_translate']
 
 #-------------------------#
 # LLM Translation Prompt  #
@@ -506,7 +507,70 @@ async def pg_openai_translation(text, source_language, target_language, model):
             "status": f"error: {str(e)}"
         }
 
-# Modify the translate_and_score function
+async def google_translate(text, source_language, target_language):
+    try:
+        url = f"https://translation.googleapis.com/language/translate/v2?key={cfg.engines.google_translate.api_key}"
+        
+        # Convert NLLB or ISO code to Google Translate code
+        source_code = convert_to_google_code(source_language)
+        target_code = convert_to_google_code(target_language)
+        
+        if not target_code:
+            logging.warning(f"Unsupported Google Translate target language: {target_language}")
+            return {
+                "translation": "",
+                "score": -100,
+                "model": "google_translate",
+                "status": f"error: Unsupported target language: {target_language}"
+            }
+
+        # Prepare the request payload
+        payload = {
+            "q": text,
+            "target": target_code,
+            "source": source_code,
+            "format": "text"
+        }
+
+        # Make the API call
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload)
+            result = response.json()
+
+        if 'data' in result and 'translations' in result['data'] and result['data']['translations']:
+            translation_text = result['data']['translations'][0]['translatedText']
+            qa_input = QAInput(source=text, translation=translation_text)
+            score = await asyncio.to_thread(get_quality_score, qa_input)
+            return {
+                "translation": translation_text,
+                "score": score.score,
+                "model": "google_translate",
+                "status": "success"
+            }
+        else:
+            raise ValueError("Unexpected response format from Google Translate API")
+
+    except Exception as e:
+        logging.error(f"Google Translate error: {str(e)}")
+        return {
+            "translation": "",
+            "score": -100,
+            "model": "google_translate",
+            "status": f"error: {str(e)}"
+        }
+
+def convert_to_google_code(language_code):
+    # Split the code and take the first part (e.g., 'fra' from 'fra_Latn')
+    code = language_code.split('_')[0]
+    
+    # If the code is 3 letters long, take the first two letters
+    if len(code) == 3:
+        return code[:2]
+    
+    # For other cases (2-letter codes or unexpected formats), return as is
+    return code
+
+# Update the translate_and_score function
 async def translate_and_score(text, source_language_nllb, target_language_nllb):
     translation_results = []
     best_translation = None
@@ -524,15 +588,15 @@ async def translate_and_score(text, source_language_nllb, target_language_nllb):
         pg_openai_translation(text, source_language_nllb, target_language_nllb, "Hermes-2-Pro-Llama-3-8B"),
         pg_openai_translation(text, source_language_nllb, target_language_nllb, "Hermes-2-Pro-Mistral-7B"),
         pg_openai_translation(text, source_language_nllb, target_language_nllb, "Neural-Chat-7B"),
-        deepl_translation(text, target_language_nllb)
-
+        deepl_translation(text, target_language_nllb),
+        google_translate(text, source_language_nllb, target_language_nllb)  # Add this line
     ]
+
     # Execute all tasks concurrently
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     # Process results
-# Instead of using zip with supported_models, let's create a list of model names
-    model_names = ['nllb', 'mbart', 'gpt-4', 'Hermes-2-Pro-Llama-3-8B', 'Hermes-2-Pro-Mistral-7B', 'Neural-Chat-7B', 'deepl']
+    model_names = ['nllb', 'mbart', 'gpt-4', 'Hermes-2-Pro-Llama-3-8B', 'Hermes-2-Pro-Mistral-7B', 'Neural-Chat-7B', 'deepl', 'google_translate']
 
     # Process results
     for i, (model, result) in enumerate(zip(model_names, results)):
