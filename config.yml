@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 api:
   key:
-=======
->>>>>>> 870c05d5b53f9d6bbc9be8243b3da5764ab46257
 comet:
   model: Unbabel/wmt22-cometkiwi-da
 huggingface:
@@ -10,11 +7,7 @@ huggingface:
   tokenizers_parallelism: false
 engines:
   predictionguard:
-<<<<<<< HEAD
-    api_key:
-=======
     api_key: 
->>>>>>> 870c05d5b53f9d6bbc9be8243b3da5764ab46257
     models:
       Hermes-2-Pro-Llama-3-8B:
         languages:
@@ -276,14 +269,8 @@ engines:
       - ydd_Hebr
       - yor_Latn
       - zul_Latn
-<<<<<<< HEAD
-
-  openai:
-    api_key:
-=======
   openai:
     api_key: 
->>>>>>> 870c05d5b53f9d6bbc9be8243b3da5764ab46257
     model: gpt-4
     languages:
       - afr_Latn
@@ -597,11 +584,7 @@ custom:
         - zul_Latn
     mbart:
       url: https://mbart-deployment-x1mpd2.baseten.co/development/predict
-<<<<<<< HEAD
-      api_key:
-=======
       api_key: 
->>>>>>> 870c05d5b53f9d6bbc9be8243b3da5764ab46257
       languages:
         - arb_Arab  # Arabic (ar_AR)
         - ces_Latn  # Czech (cs_CZ)
@@ -655,7 +638,3 @@ custom:
         - xho_Latn  # Xhosa (xh_ZA)
         - glg_Latn  # Galician (gl_ES)
         - slv_Latn  # Slovene (sl_SI)
-<<<<<<< HEAD
-=======
-
->>>>>>> 870c05d5b53f9d6bbc9be8243b3da5764ab46257

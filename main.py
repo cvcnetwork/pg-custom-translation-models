@@ -36,10 +36,6 @@ logging.basicConfig(level=logging.DEBUG)
 #         Config           #
 #--------------------------#
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 870c05d5b53f9d6bbc9be8243b3da5764ab46257
 ymlcfg = yaml.safe_load(open(os.path.join(sys.path[0], 'config.yml')))
 cfg = munch.munchify(ymlcfg)
 
@@ -66,10 +62,6 @@ huggingface_hub.login(token=cfg.huggingface.token)
 TOKENIZERS_PARALLELISM = cfg.huggingface.tokenizers_parallelism
 os.environ['TOKENIZERS_PARALLELISM'] = str(TOKENIZERS_PARALLELISM)
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 870c05d5b53f9d6bbc9be8243b3da5764ab46257
 # Model URLs and API keys for NLLB and mBART
 MODEL_URLS = {
     "nllb": "https://model-2qjl172w.api.baseten.co/development/predict",
@@ -693,9 +685,4 @@ async def translate(req: TranslateRequest):
     return await translate_and_score(req.text, req.source_lang, req.target_lang)
 
 if __name__ == "__main__":
-<<<<<<< HEAD
-    uvicorn.run(app, host="0.0.0.0", port=8081)
-
-=======
     uvicorn.run(app, host="0.0.0.0", port=8080)
->>>>>>> 870c05d5b53f9d6bbc9be8243b3da5764ab46257
