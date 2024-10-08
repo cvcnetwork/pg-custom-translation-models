@@ -1,5 +1,5 @@
 api:
-  key:
+  key: 
 comet:
   model: Unbabel/wmt22-cometkiwi-da
 huggingface:
@@ -108,7 +108,7 @@ engines:
           - eng_Latn
           - zho_Hans
   deepl:
-    api_key: 
+    api_key:
     languages:
       - arb_Arab
       - bul_Cyrl
@@ -269,6 +269,7 @@ engines:
       - ydd_Hebr
       - yor_Latn
       - zul_Latn
+
   openai:
     api_key: 
     model: gpt-4

@@ -19,14 +19,10 @@ huggingface_hub.constants.HF_HUB_DOWNLOAD_TIMEOUT = 1000  # Set timeout to 1000 
 import httpx
 import logging
 from google.cloud import translate_v2 as translate
-<<<<<<< HEAD
 from fastapi import FastAPI, Header, HTTPException, Depends, Security, status
 from fastapi.security import APIKeyHeader
 from typing import Optional
-=======
->>>>>>> 870c05d5b53f9d6bbc9be8243b3da5764ab46257
 
-logging.basicConfig(level=logging.DEBUG)
 
 app = FastAPI()
 
@@ -35,6 +31,7 @@ logging.basicConfig(level=logging.DEBUG)
 #--------------------------#
 #         Config           #
 #--------------------------#
+
 
 ymlcfg = yaml.safe_load(open(os.path.join(sys.path[0], 'config.yml')))
 cfg = munch.munchify(ymlcfg)
@@ -61,6 +58,7 @@ if 'HUGGINGFACE_TOKEN' in os.environ:
 huggingface_hub.login(token=cfg.huggingface.token)
 TOKENIZERS_PARALLELISM = cfg.huggingface.tokenizers_parallelism
 os.environ['TOKENIZERS_PARALLELISM'] = str(TOKENIZERS_PARALLELISM)
+
 
 # Model URLs and API keys for NLLB and mBART
 MODEL_URLS = {
@@ -666,19 +664,11 @@ def is_valid_language(language_code):
     return language_code in supported_languages
 
 @app.get("/")
-<<<<<<< HEAD
 async def read_root(api_key: str = Depends(get_api_key)):
     return {"status": "healthy"}
 
 @app.post("/translate")
 async def translate(req: TranslateRequest, api_key: str = Depends(get_api_key)):
-=======
-def read_root():
-    return {"status": "healthy"}
-
-@app.post("/translate")
-async def translate(req: TranslateRequest):
->>>>>>> 870c05d5b53f9d6bbc9be8243b3da5764ab46257
     if not is_valid_language(req.source_lang) or not is_valid_language(req.target_lang):
         raise HTTPException(status_code=400, detail="Invalid language code(s)")
 
