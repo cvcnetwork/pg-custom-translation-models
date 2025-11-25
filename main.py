@@ -3,12 +3,14 @@ import time
 from pydantic import BaseModel
 import yaml
 import sys
+import json
+from typing import Annotated
 
 from predictionguard import PredictionGuard
 import pandas as pd
 from comet import download_model, load_from_checkpoint
 import deepl
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 import uvicorn
 from concurrent.futures import ThreadPoolExecutor
 import uuid
@@ -24,34 +26,38 @@ import requests
 #--------------------------#
 
 ymlcfg = yaml.safe_load(open(os.path.join(sys.path[0],  'config.yml')))
-cfg = munch.munchify(ymlcfg)
+initial_cfg = munch.munchify(ymlcfg)
 
 app = FastAPI()
 
 # Hugging Face login
-huggingface_hub.login(token=cfg.huggingface.token)
-TOKENIZERS_PARALLELISM = cfg.huggingface.tokenizers_parallelism
+huggingface_hub.login(token=initial_cfg.huggingface.token)
+TOKENIZERS_PARALLELISM = initial_cfg.huggingface.tokenizers_parallelism
 os.environ['TOKENIZERS_PARALLELISM'] = str(TOKENIZERS_PARALLELISM)
 
 # Get a list of all supported languages
-supported_languages = []
-for m in cfg.engines.keys():
-    if m == "predictionguard" or m == "custom":
-        for m_inner in cfg.engines[m].models:
-            for l in cfg.engines[m].models[m_inner].languages:
+def get_supported_languages(cfg: dict):
+    supported_languages = []
+    for m in cfg.engines.keys():
+        if m == "predictionguard" or m == "custom":
+            for m_inner in cfg.engines[m].models:
+                for l in cfg.engines[m].models[m_inner].languages:
+                    supported_languages.append(l)
+        else:
+            for l in cfg.engines[m].languages:
                 supported_languages.append(l)
-    else:
-        for l in cfg.engines[m].languages:
-            supported_languages.append(l)
+    return supported_languages
 
 # Get a list of supported models
-supported_models = []
-for m in cfg.engines.keys():
-    if m == "predictionguard" or m == "custom":
-        for m_inner in cfg.engines[m].models:
-            supported_models.append(m + "__" + m_inner)
-    else:
-        supported_models.append(m)
+def get_supported_models(cfg: dict):
+    supported_models = []
+    for m in cfg.engines.keys():
+        if m == "predictionguard" or m == "custom":
+            for m_inner in cfg.engines[m].models:
+                supported_models.append(m + "__" + m_inner)
+        else:
+            supported_models.append(m)
+    return supported_models
 
 
 #-------------------------#
@@ -85,7 +91,7 @@ iso = pd.read_csv('iso-639-3.tab', sep='\t')
 #----------------------#
 
 # Download the COMET model
-model_path = download_model(cfg.comet.model)
+model_path = download_model(initial_cfg.comet.model)
 comet_model = load_from_checkpoint(model_path)
 
 # Define the input and output models for COMET scoring
@@ -102,7 +108,7 @@ def get_quality_score(input: QAInput):
         "src": input.source,
         "mt": input.translation,
     }]
-    model_output = comet_model.predict(data, batch_size=8, gpus=0)
+    model_output = comet_model.predict(data, batch_size=8, gpus=0, num_workers=1)
     return QAOutput(score=model_output.system_score)
 
 
@@ -110,7 +116,7 @@ def get_quality_score(input: QAInput):
 # MT APIs/ Models      #
 #----------------------#
 
-if "deepl" in cfg.engines.keys():
+if "deepl" in initial_cfg.engines.keys():
 
     # Create a map of language codes to deepl languages
     deepl_languages = {
@@ -146,7 +152,7 @@ if "deepl" in cfg.engines.keys():
         "ukr": "UK"
     }
 
-def deepl_translation(text, target_language):
+def deepl_translation(text, target_language, cfg):
 
     # Process target language code
     target_language = deepl_languages[target_language]
@@ -176,13 +182,19 @@ def deepl_translation(text, target_language):
         }
 
 
-def pg_openai_translation(text, source_language, target_language, model):
+def pg_openai_translation(text, source_language, target_language, model, cfg):
 
     # Initialize the client
     if "gpt" in model:
         client = OpenAI(api_key=cfg.engines.openai.api_key)
     else:
-        client = PredictionGuard(api_key=cfg.engines.predictionguard.api_key)
+        DEFAULT_URL = "https://api.predictionguard.com"
+        predictionguard_engine = cfg.engines.predictionguard
+        if 'url' not in predictionguard_engine.keys():
+            url = DEFAULT_URL
+        else:
+            url = predictionguard_engine.url
+        client = PredictionGuard(api_key=cfg.engines.predictionguard.api_key, url=url)
 
     # Call the API
     result = client.chat.completions.create(
@@ -217,7 +229,7 @@ def pg_openai_translation(text, source_language, target_language, model):
         }
     
 
-def custom_translation(text, source_language, target_language, model):
+def custom_translation(text, source_language, target_language, model, cfg):
 
     # TODO: Make source language in the JSON body optional
 
@@ -257,7 +269,7 @@ def custom_translation(text, source_language, target_language, model):
 # Concurrent Translation functionality    #
 #-----------------------------------------#
 
-def translate_and_score(text, source_language_iso639, target_language_iso639):
+def translate_and_score(text, source_language_iso639, target_language_iso639, cfg):
 
     translation_results = []
     best_translation = None
@@ -268,6 +280,7 @@ def translate_and_score(text, source_language_iso639, target_language_iso639):
     unique_id = "translation-" + str(uuid.uuid4()).replace("-", "")
 
     # filter supported models based on language codes
+    supported_models = get_supported_models(cfg)
     supported_models_filtered = []
     for model in supported_models:
         if "predictionguard" in model or "custom" in model:
@@ -280,30 +293,33 @@ def translate_and_score(text, source_language_iso639, target_language_iso639):
             if target_language_iso639 in other_langs and source_language_iso639 in other_langs:
                 supported_models_filtered.append(model)
 
-    def process_translation(model):
+    def process_translation(model, cfg):
         try:
             if model == "deepl":
-                result = deepl_translation(text, target_language_iso639)
+                result = deepl_translation(text, target_language_iso639, cfg)
             elif "predictionguard" in model:
                 result = pg_openai_translation(
                     text, 
                     source_language_iso639, 
                     target_language_iso639, 
-                    model.split('__')[-1]
+                    model.split('__')[-1],
+                    cfg
                 )
             elif model == "openai":
                 result = pg_openai_translation(
                     text, 
                     source_language_iso639, 
                     target_language_iso639, 
-                    cfg.engines.openai.model
+                    cfg.engines.openai.model,
+                    cfg
                 )
             elif "custom" in model:
                 result = custom_translation(
                     text, 
                     source_language_iso639, 
                     target_language_iso639, 
-                    model.split('__')[-1]
+                    model.split('__')[-1],
+                    cfg
                 )
             else:
                 raise ValueError(f"Unsupported model: {model}")
@@ -319,7 +335,7 @@ def translate_and_score(text, source_language_iso639, target_language_iso639):
             }
 
     with ThreadPoolExecutor(max_workers=len(supported_models_filtered)) as executor:
-        futures = [executor.submit(process_translation, model) for model in supported_models]
+        futures = [executor.submit(process_translation, model, cfg) for model in supported_models]
         for future in futures:
             result = future.result()
             translation_results.append(result)
@@ -356,18 +372,24 @@ class TranslateRequest(BaseModel):
     target_lang: str
 
 
-def is_valid_language(language_code):
-    return language_code in supported_languages
+def is_valid_language(language_code, cfg):
+    return language_code in get_supported_languages(cfg)
 
 
 @app.post("/translate")
-def update_item(req: TranslateRequest):
-    if not is_valid_language(req.source_lang) or not is_valid_language(req.target_lang):
+def update_item(
+        req: TranslateRequest,
+        workspace_config: Annotated[str | None, Header()] = None
+):
+    if workspace_config != None:
+        cfg = munch.munchify(json.loads(str(workspace_config)))
+    else:
+        cfg = initial_cfg
+    if not is_valid_language(req.source_lang, cfg) or not is_valid_language(req.target_lang, cfg):
         raise HTTPException(status_code=400, detail="Invalid language code(s)")
 
     # Now you can proceed with the translations
-    return translate_and_score(req.text, req.source_lang, req.target_lang)
-
+    return translate_and_score(req.text, req.source_lang, req.target_lang, cfg)
 
 if __name__ == "__main__":
     uvicorn.run(app, port=8080, host="0.0.0.0")
